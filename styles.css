@@ -1,0 +1,149 @@
+/* =========================================================
+   SILUETEANDO — diseño
+   Materiales del Siluetazo: noche, muro, papel kraft, tinta, rojo.
+   Cambiá los valores de :root para reajustar todo el tono.
+   ========================================================= */
+:root{
+  --noche:   #12151a;   /* fondo del relato, la ciudad de noche */
+  --muro:    #1c1814;   /* superficie de muro, mas calida */
+  --papel:   #d9c7a1;   /* las siluetas, recortes de papel kraft */
+  --hueso:   #ece3d2;   /* texto principal */
+  --apagado: #8d846f;   /* texto secundario, fichas */
+  --rojo:    #b03a2c;   /* consignas y el numero, con cuentagotas */
+
+  --display: "Anton", "Arial Narrow", system-ui, sans-serif;
+  --cuerpo:  "Work Sans", system-ui, -apple-system, sans-serif;
+  --maquina: "Special Elite", "Courier New", ui-monospace, monospace;
+}
+
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+html{ scroll-behavior:smooth; }
+body{
+  margin:0; background:var(--noche); color:var(--hueso);
+  font-family:var(--cuerpo); line-height:1.5;
+  overscroll-behavior-y:none;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* ---------------- estructura de secciones ---------------- */
+.seccion{
+  position:relative;
+  min-height:100svh;
+  display:flex; flex-direction:column; justify-content:center;
+  gap:18px;
+  padding:14svh 24px;
+  border-top:1px solid rgba(217,199,161,.07);
+}
+.seccion:first-child{ border-top:0; }
+
+/* aparicion al hacer scroll */
+.seccion .bloque{
+  opacity:0; transform:translateY(22px);
+  transition:opacity .8s ease, transform .8s ease;
+}
+.seccion.visible .bloque{ opacity:1; transform:none; }
+
+/* numero de ficha (es un recorrido ordenado, por eso numeramos) */
+.ficha{
+  font-family:var(--maquina); font-size:13px; letter-spacing:.18em;
+  color:var(--apagado); text-transform:uppercase;
+}
+.ficha .reg{ color:var(--rojo); }
+
+/* titulares tipo afiche */
+.titulo{
+  font-family:var(--display); font-weight:400;
+  font-size:clamp(34px, 11vw, 76px); line-height:.96;
+  letter-spacing:.005em; margin:0; text-transform:uppercase;
+}
+.lineas p{ font-size:clamp(17px,4.6vw,22px); margin:.35em 0; max-width:30ch; }
+.pie{ font-size:14px; color:var(--apagado); max-width:42ch; margin-top:10px; }
+
+/* la cita, voz de la calle */
+.cita{
+  font-family:var(--maquina); font-size:clamp(16px,4.4vw,20px);
+  color:var(--hueso); border-left:2px solid var(--rojo);
+  padding-left:14px; max-width:34ch; margin-top:6px;
+}
+
+/* consigna estampada */
+.consigna{
+  align-self:flex-start;
+  font-family:var(--maquina); font-size:13px; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--rojo);
+  border:1px solid var(--rojo); padding:7px 12px; border-radius:2px;
+  transform:rotate(-1.5deg);
+}
+
+/* ---------------- portada ---------------- */
+.portada{ align-items:flex-start; justify-content:flex-end; padding-bottom:16svh; }
+.portada .marca{ font-family:var(--display); font-size:clamp(56px,20vw,140px); line-height:.9; text-transform:uppercase; margin:0; }
+.portada .sub{ font-family:var(--maquina); color:var(--apagado); letter-spacing:.1em; margin-top:8px; }
+.portada .entrada{ font-family:var(--maquina); font-size:12px; letter-spacing:.2em; color:var(--apagado); margin-top:34px; text-transform:uppercase; animation:respira 2.4s ease-in-out infinite; }
+@keyframes respira{ 0%,100%{ opacity:.4 } 50%{ opacity:1 } }
+
+/* ---------------- seccion de dibujo ---------------- */
+.dibujo{ align-items:stretch; }
+.instruccion{ font-family:var(--display); font-size:clamp(28px,9vw,52px); text-transform:uppercase; margin:0; line-height:1; }
+.ayuda{ font-size:15px; color:var(--apagado); max-width:34ch; }
+.tablero{
+  position:relative; width:100%; height:48svh; margin-top:6px;
+  border:1px dashed rgba(217,199,161,.28); border-radius:3px;
+  background:rgba(0,0,0,.18); touch-action:none; overflow:hidden;
+}
+.tablero canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+.tablero .marca-toque{
+  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+  font-family:var(--maquina); font-size:14px; color:var(--apagado); pointer-events:none;
+}
+.controles{ display:flex; gap:10px; margin-top:12px; }
+.btn{
+  flex:1; appearance:none; border:0; cursor:pointer; padding:15px; border-radius:2px;
+  font-family:var(--maquina); font-size:14px; letter-spacing:.08em; text-transform:uppercase;
+  background:var(--papel); color:var(--noche); transition:transform .08s ease, opacity .2s ease;
+}
+.btn:active{ transform:translateY(1px); }
+.btn:disabled{ opacity:.3; pointer-events:none; }
+.btn--ghost{ background:transparent; color:var(--apagado); box-shadow:inset 0 0 0 1px rgba(217,199,161,.25); }
+.cierre-dibujo{ font-family:var(--maquina); color:var(--hueso); font-size:15px; margin-top:14px; opacity:0; transition:opacity .6s ease; }
+.cierre-dibujo.on{ opacity:1; }
+
+/* ---------------- la silueta que camina (firma) ---------------- */
+.companion{
+  position:fixed; left:16px; bottom:14px; width:74px; height:108px; z-index:40;
+  pointer-events:none; opacity:0; transform:translateY(10px);
+  transition:opacity .6s ease, transform .6s ease;
+}
+.companion.on{ opacity:1; transform:none; animation:caminar 1.5s ease-in-out infinite; }
+.companion canvas{ width:100%; height:100%; display:block; }
+@keyframes caminar{
+  0%,100%{ transform:translateY(0) rotate(-1.2deg) }
+  50%{ transform:translateY(-5px) rotate(1.2deg) }
+}
+.companion.llego{ animation:none; opacity:0; } /* al llegar al muro, se suma y se apaga */
+
+/* ---------------- el muro final ---------------- */
+.cierre{ align-items:flex-start; }
+.muro{
+  position:relative; width:100%; height:50svh; margin:10px 0;
+  border-radius:3px; overflow:hidden; background:var(--muro);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);
+}
+.muro canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
+.numerazo{
+  font-family:var(--display); font-size:clamp(48px,17vw,120px); line-height:.9;
+  color:var(--rojo); text-transform:uppercase; margin:4px 0 0;
+}
+.numerazo small{ display:block; font-family:var(--maquina); font-size:13px; letter-spacing:.18em; color:var(--apagado); -webkit-text-fill-color:var(--apagado); }
+.sin-silueta{ font-family:var(--maquina); font-size:14px; color:var(--apagado); }
+
+/* ---------------- accesibilidad ---------------- */
+:focus-visible{ outline:2px solid var(--rojo); outline-offset:3px; }
+
+@media (prefers-reduced-motion: reduce){
+  html{ scroll-behavior:auto; }
+  .seccion .bloque{ transition:none; opacity:1; transform:none; }
+  .companion.on{ animation:none; }
+  .portada .entrada{ animation:none; }
+}
