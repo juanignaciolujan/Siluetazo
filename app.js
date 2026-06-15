@@ -1,294 +1,219 @@
 /* =========================================================
-   SILUETEANDO — logica
-   Construye el recorrido desde datos.js, maneja el dibujo de la
-   silueta, su caminata por el scroll y la llegada al muro final.
+   EL SILUETAZO — logica (version final, una pagina)
+   Maquina de estados: intro -> narrativa -> lienzo -> recorrido(stub).
+   Etapa 1 implementa pantallas 1 a 3. El recorrido inmersivo (4-9)
+   y el cierre (10) llegan en las proximas etapas.
    Todo del lado del navegador. Nada se sube a ningun lado.
    ========================================================= */
 
 const reducido = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const color = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const escena = document.getElementById('escena');
 
-/* la silueta dibujada se guarda normalizada (0..1) para redibujarla
-   en cualquier tamaño y color: en el tablero, en el companion, en el muro */
-let silueta = null;   // { norm:[{x,y}], aspecto }
+/* figura humana de la guia (plantilla a trazar) */
+const SVG_FIG = `<svg class="fig" viewBox="0 0 120 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+  <circle cx="60" cy="42" r="30"/>
+  <path d="M60 78 C92 78 104 104 104 150 L96 300 L24 300 L16 150 C16 104 28 78 60 78 Z"/></svg>`;
 
-/* ---------- color util ---------- */
-function color(varName){
-  return getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-}
-
-/* ---------- 1. CONSTRUIR EL RECORRIDO DESDE DATOS ---------- */
-const scroll = document.getElementById('scroll');
-
-function lineasHTML(arr){ return (arr||[]).map(t=>`<p>${t}</p>`).join(''); }
-
-function plantilla(s){
-  const ficha = s.num
-    ? `<div class="ficha bloque"><span class="reg">${DATOS.meta.registro}</span> · ${s.num}</div>` : '';
-
-  if(s.tipo === 'portada'){
-    return `<h1 class="marca bloque">${s.titulo}</h1>
-            <p class="sub bloque">${s.sub}</p>
-            <p class="entrada bloque">${s.entrada} ↓</p>`;
-  }
-  if(s.tipo === 'pregunta'){
-    return `${ficha}
-            <h2 class="titulo bloque">${s.texto}</h2>
-            <p class="pie bloque">${s.pie||''}</p>`;
-  }
-  if(s.tipo === 'dibujo'){
-    return `${ficha}
-            <h2 class="instruccion bloque">${s.instruccion}</h2>
-            <p class="ayuda bloque">${s.ayuda||''}</p>
-            <div class="tablero bloque">
-              <canvas id="lienzo"></canvas>
-              <div class="marca-toque" id="marcaToque">Trazá acá</div>
-            </div>
-            <div class="controles bloque">
-              <button class="btn btn--ghost" id="btnOtra">Otra vez</button>
-              <button class="btn" id="btnListo" disabled>Listo</button>
-            </div>
-            <p class="cierre-dibujo" id="cierreDibujo">${s.cierre||''}</p>`;
-  }
-  if(s.tipo === 'cierre'){
-    return `${ficha}
-            <h2 class="titulo bloque">${s.titulo}</h2>
-            <div class="muro bloque"><canvas id="muroLienzo"></canvas></div>
-            <p class="numerazo bloque">${DATOS.meta.numero}<small>desaparecidos</small></p>
-            ${lineasHTML(s.lineas) ? `<div class="lineas bloque">${lineasHTML(s.lineas)}</div>` : ''}
-            <p class="pie bloque">${s.pie||''}</p>`;
-  }
-  // texto
-  return `${ficha}
-          <h2 class="titulo bloque">${s.titulo}</h2>
-          <div class="lineas bloque">${lineasHTML(s.lineas)}</div>
-          ${s.consigna ? `<span class="consigna bloque">${s.consigna}</span>` : ''}
-          ${s.cita ? `<p class="cita bloque">${s.cita}</p>` : ''}
-          ${s.pie ? `<p class="pie bloque">${s.pie}</p>` : ''}`;
-}
-
-DATOS.secciones.forEach((s, i)=>{
-  const el = document.createElement('section');
-  el.className = 'seccion ' + s.tipo + (s.tipo==='portada' ? ' portada' : '');
-  el.dataset.tipo = s.tipo;
-  el.dataset.indice = i;
-  el.innerHTML = plantilla(s);
-  scroll.appendChild(el);
-});
-
-/* ---------- 2. DIBUJAR UNA SILUETA (path -> normalizado) ---------- */
-const lienzo   = document.getElementById('lienzo');
-const ctx      = lienzo.getContext('2d');
-const marca    = document.getElementById('marcaToque');
-const btnListo = document.getElementById('btnListo');
-const btnOtra  = document.getElementById('btnOtra');
-const cierreD  = document.getElementById('cierreDibujo');
-const tablero  = lienzo.parentElement;
-
-let puntos = [];      // puntos en px CSS del tablero
-let trazando = false;
+/* silueta normalizada (0..1) — se guarda para las etapas siguientes */
+let silueta = null;
+function guardarSilueta(s){ try{ sessionStorage.setItem('siluetazo:silueta', JSON.stringify(s)); }catch(e){} }
 
 function ajustar(cv){
   const r = cv.getBoundingClientRect();
-  const dpr = window.devicePixelRatio || 1;
-  cv.width = Math.round(r.width*dpr);
-  cv.height = Math.round(r.height*dpr);
-  const c = cv.getContext('2d');
-  c.setTransform(dpr,0,0,dpr,0,0);
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cv.width = Math.max(1, Math.round(r.width*dpr));
+  cv.height = Math.max(1, Math.round(r.height*dpr));
+  cv.getContext('2d').setTransform(dpr,0,0,dpr,0,0);
   return r;
 }
 
-function pintarTrazo(){
-  const r = lienzo.getBoundingClientRect();
-  ctx.clearRect(0,0,r.width,r.height);
-  if(puntos.length){
-    ctx.beginPath();
-    ctx.moveTo(puntos[0].x, puntos[0].y);
-    for(let i=1;i<puntos.length;i++) ctx.lineTo(puntos[i].x, puntos[i].y);
-    if(puntos.length>3) ctx.closePath();
-    ctx.fillStyle = 'rgba(217,199,161,.22)';
-    ctx.fill();
-    ctx.strokeStyle = color('--papel');
-    ctx.lineWidth = 2.5; ctx.lineJoin='round'; ctx.lineCap='round';
-    ctx.stroke();
+/* fade-in helper: agrega .in en el proximo frame */
+function entrar(el, t){ if(t) el.style.setProperty('--t', t+'ms'); requestAnimationFrame(()=> requestAnimationFrame(()=> el.classList.add('in'))); }
+
+/* =========================================================
+   PANTALLA 1 — INTRO
+   ========================================================= */
+function irIntro(){
+  const I = DATOS.intro;
+  escena.innerHTML = `
+    <section class="intro">
+      <h1 class="titulo fade">${I.titulo}</h1>
+      <p class="subtitulo fade">${I.subtitulo}</p>
+      <button class="cta fade" id="comenzar">${I.cta}</button>
+    </section>`;
+  const bloques = [...escena.querySelectorAll('.fade')];
+  // fade-in pausado (800-1200ms) con stagger de 200ms de arriba hacia abajo
+  bloques.forEach((b,i)=> b.style.setProperty('--t', '1100ms'));
+  if(reducido){ bloques.forEach(b=> b.classList.add('in')); }
+  else bloques.forEach((b,i)=> setTimeout(()=> entrar(b), i*200));
+
+  document.getElementById('comenzar').addEventListener('click', ()=>{
+    // fade-out de todos los textos; el negro queda para la secuencia
+    bloques.forEach(b=> b.classList.remove('in'));
+    setTimeout(irNarrativa, reducido ? 0 : 700);
+  });
+}
+
+/* =========================================================
+   PANTALLA 2 — SECUENCIA NARRATIVA (automatica, scroll bloqueado)
+   ========================================================= */
+function irNarrativa(){
+  escena.innerHTML = `<section class="narrativa">${
+    DATOS.narrativa.map((p,i)=>`<div class="placa" data-i="${i}"><div class="h1">${p.h1}</div><div class="h2">${p.h2}</div></div>`).join('')
+  }</section>`;
+  const placas = [...escena.querySelectorAll('.placa')];
+  const R = DATOS.ritmo;
+  let i = 0;
+  function mostrar(){
+    if(i >= placas.length){ setTimeout(irLienzo, R.gap); return; }
+    const pl = placas[i];
+    pl.classList.add('on');                                   // fade in
+    setTimeout(()=>{
+      pl.classList.remove('on');                              // fade out
+      setTimeout(()=>{ i++; mostrar(); }, R.fadeOut + R.gap); // delay de negro entre placas
+    }, R.fadeIn + R.hold);
   }
+  setTimeout(mostrar, R.gap);
 }
 
-function coord(e){
-  const r = lienzo.getBoundingClientRect();
-  return { x:e.clientX - r.left, y:e.clientY - r.top };
-}
+/* =========================================================
+   PANTALLA 3 — LIENZO (el gancho interactivo)
+   ========================================================= */
+function irLienzo(){
+  const L = DATOS.lienzo;
+  escena.innerHTML = `
+    <section class="lienzo-escena">
+      <h2 class="titulo fade">${L.titulo}</h2>
+      <p class="instruccion fade">${L.instruccion}</p>
+      <div class="lienzo fade" id="lienzo">
+        <canvas class="papel" id="papel"></canvas>
+        <div class="guia">${SVG_FIG}</div>
+        <canvas id="trazo"></canvas>
+      </div>
+      <div class="post" id="post">
+        <p class="frase">${L.postDibujo}</p>
+        <button class="listo" id="listo">${L.boton}</button>
+      </div>
+    </section>`;
 
-tablero.addEventListener('pointerdown', e=>{
-  trazando = true; tablero.setPointerCapture(e.pointerId);
-  marca.style.display = 'none';
-  puntos.push(coord(e)); pintarTrazo();
-});
-tablero.addEventListener('pointermove', e=>{
-  if(!trazando) return;
-  puntos.push(coord(e));
-  if(puntos.length>5) btnListo.disabled = false;
-  pintarTrazo();
-});
-function soltar(){ trazando = false; }
-tablero.addEventListener('pointerup', soltar);
-tablero.addEventListener('pointercancel', soltar);
+  escena.querySelectorAll('.fade').forEach(b=> entrar(b, 800));
 
-btnOtra.addEventListener('click', ()=>{
-  puntos = []; btnListo.disabled = true;
-  const r = lienzo.getBoundingClientRect();
-  ctx.clearRect(0,0,r.width,r.height);
-  marca.style.display = '';
-  cierreD.classList.remove('on');
-});
+  const lienzo = document.getElementById('lienzo');
+  const papel  = document.getElementById('papel');
+  const trazoCv= document.getElementById('trazo');
+  const tctx   = trazoCv.getContext('2d');
+  const post   = document.getElementById('post');
+  const btnListo = document.getElementById('listo');
 
-btnListo.addEventListener('click', ()=>{
-  if(puntos.length < 6) return;
-  // normalizar a 0..1 dentro del bounding box
-  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
-  puntos.forEach(p=>{ minX=Math.min(minX,p.x); minY=Math.min(minY,p.y); maxX=Math.max(maxX,p.x); maxY=Math.max(maxY,p.y); });
-  const bw = Math.max(1,maxX-minX), bh = Math.max(1,maxY-minY);
-  silueta = {
-    norm: puntos.map(p=>({ x:(p.x-minX)/bw, y:(p.y-minY)/bh })),
-    aspecto: bw/bh
-  };
-  // confirmar el trazo en el tablero, ya como recorte de papel
-  const r = lienzo.getBoundingClientRect();
-  ctx.clearRect(0,0,r.width,r.height);
-  rellenarSilueta(ctx, {x:minX,y:minY,w:bw,h:bh}, color('--papel'));
-  cierreD.classList.add('on');
-  encenderCompanion();
-});
+  // pintar la textura de papel cuando el lienzo ya tiene tamaño
+  function prepararPapel(){ pintarPapel(papel); ajustar(trazoCv); }
+  requestAnimationFrame(()=> requestAnimationFrame(prepararPapel));
 
-/* dibuja la silueta guardada dentro de una caja destino (contain), de un color */
-function rellenarSilueta(c, caja, tinta){
-  if(!silueta) return;
-  const a = silueta.aspecto;
-  let w = caja.w, h = caja.w/a;
-  if(h > caja.h){ h = caja.h; w = caja.h*a; }
-  const ox = caja.x + (caja.w-w)/2;
-  const oy = caja.y + (caja.h-h)/2;
-  c.beginPath();
-  silueta.norm.forEach((p,i)=>{
-    const x = ox + p.x*w, y = oy + p.y*h;
-    i ? c.lineTo(x,y) : c.moveTo(x,y);
-  });
-  c.closePath();
-  c.fillStyle = tinta; c.fill();
-}
+  let puntos = [], trazando = false, validado = false;
 
-/* ---------- 3. LA SILUETA QUE CAMINA (companion) ---------- */
-const compEl = document.getElementById('companion');
-const compCv = compEl.querySelector('canvas');
+  const coord = e => { const r = trazoCv.getBoundingClientRect(); return { x:e.clientX-r.left, y:e.clientY-r.top }; };
 
-function dibujarCompanion(){
-  if(!silueta) return;
-  const r = ajustar(compCv);
-  const c = compCv.getContext('2d');
-  c.clearRect(0,0,r.width,r.height);
-  rellenarSilueta(c, {x:6,y:4,w:r.width-12,h:r.height-8}, color('--papel'));
-}
-function encenderCompanion(){
-  dibujarCompanion();
-  compEl.classList.add('on');
-}
-
-/* ---------- 4. SCROLL: aparicion de secciones + disparar el muro ---------- */
-const io = new IntersectionObserver((entradas)=>{
-  entradas.forEach(en=>{
-    if(en.isIntersecting){
-      en.target.classList.add('visible');
-      if(en.target.dataset.tipo === 'cierre') llegarAlMuro();
+  // trazo con leve rugosidad, simulando grafito/marcador sobre papel
+  function pintarTrazo(cerrar){
+    const r = trazoCv.getBoundingClientRect();
+    tctx.clearRect(0,0,r.width,r.height);
+    if(puntos.length < 2) return;
+    if(cerrar){
+      tctx.beginPath();
+      puntos.forEach((p,i)=> i?tctx.lineTo(p.x,p.y):tctx.moveTo(p.x,p.y));
+      tctx.closePath();
+      tctx.fillStyle = color('--tinta'); tctx.fill();
     }
-  });
-}, { threshold:.28 });
-document.querySelectorAll('.seccion').forEach(s=> io.observe(s));
-
-/* ---------- 5. EL MURO DE LAS 30.000 ---------- */
-const muroLienzo = document.getElementById('muroLienzo');
-let muroPintado = false;
-
-// figura generica de la multitud (un cuerpo simple, anonimo)
-function figuraGenerica(c, x, y, h, tinta){
-  const w = h*0.42;
-  c.fillStyle = tinta;
-  c.beginPath();                                   // cabeza
-  c.arc(x, y + h*0.14, h*0.12, 0, Math.PI*2);
-  c.fill();
-  c.beginPath();                                   // cuerpo
-  c.moveTo(x - w*0.5, y + h);
-  c.quadraticCurveTo(x - w*0.5, y + h*0.30, x, y + h*0.28);
-  c.quadraticCurveTo(x + w*0.5, y + h*0.30, x + w*0.5, y + h);
-  c.closePath();
-  c.fill();
-}
-
-function pintarMuro(){
-  const r = ajustar(muroLienzo);
-  const c = muroLienzo.getContext('2d');
-  c.clearRect(0,0,r.width,r.height);
-
-  // multitud: muchas figuras de papel, tenues, evocando la magnitud
-  const filas = 7;
-  const fh = r.height / (filas + .5);
-  const figAlto = fh * 0.92;
-  for(let f=0; f<filas; f++){
-    const y = f*fh + fh*0.2;
-    const sep = figAlto*0.46;
-    const jitterFila = (f%2) * sep*0.5;
-    for(let x = -sep; x < r.width + sep; x += sep){
-      const jx = (Math.sin((f*13.3 + x)*0.7)) * sep*0.12;
-      const op = 0.18 + ((f+ x*0.013) % 1) * 0.12;
-      c.globalAlpha = Math.min(.4, op);
-      figuraGenerica(c, x + jitterFila + jx, y, figAlto, color('--papel'));
+    for(let pass=0; pass<2; pass++){
+      tctx.beginPath();
+      puntos.forEach((p,i)=>{
+        const j = pass ? (Math.random()*1.8 - 0.9) : 0;
+        const x=p.x+j, y=p.y+j;
+        i ? tctx.lineTo(x,y) : tctx.moveTo(x,y);
+      });
+      if(cerrar) tctx.closePath();
+      tctx.strokeStyle = pass ? 'rgba(17,16,16,.30)' : 'rgba(17,16,16,.95)';
+      tctx.lineWidth   = pass ? 5.5 : 3.2;
+      tctx.lineJoin='round'; tctx.lineCap='round';
+      tctx.stroke();
     }
   }
-  c.globalAlpha = 1;
 
-  // tu silueta, mas grande y plena, sumada a la multitud
-  if(silueta){
-    const w = r.width*0.20, h = r.height*0.62;
-    const x = r.width*0.5 - w/2, y = r.height*0.5 - h/2;
-    rellenarSilueta(c, {x, y, w, h}, color('--papel'));
-    // marca de "la tuya": un contorno rojo apenas
-    c.save();
-    c.translate(0,0);
-    c.beginPath();
-    const a = silueta.aspecto; let dw=w, dh=w/a; if(dh>h){dh=h;dw=h*a;}
-    const ox = x+(w-dw)/2, oy = y+(h-dh)/2;
-    silueta.norm.forEach((p,i)=>{ const px=ox+p.x*dw, py=oy+p.y*dh; i?c.lineTo(px,py):c.moveTo(px,py); });
-    c.closePath();
-    c.strokeStyle = color('--rojo'); c.lineWidth = 2; c.stroke();
-    c.restore();
+  lienzo.addEventListener('pointerdown', e=>{
+    if(validado) return;
+    trazando = true; lienzo.setPointerCapture(e.pointerId);
+    puntos.push(coord(e)); pintarTrazo(false);
+  });
+  lienzo.addEventListener('pointermove', e=>{ if(!trazando) return; puntos.push(coord(e)); pintarTrazo(false); });
+  function soltar(){
+    if(!trazando) return; trazando = false;
+    validar();
   }
+  lienzo.addEventListener('pointerup', soltar);
+  lienzo.addEventListener('pointercancel', soltar);
+
+  // validacion permisiva: con un trazo de cuerpo de tamaño razonable, se cierra solo
+  function validar(){
+    if(validado || puntos.length < 12) return;
+    let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+    puntos.forEach(p=>{ minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y); });
+    const bw=Math.max(1,maxX-minX), bh=Math.max(1,maxY-minY);
+    const r = trazoCv.getBoundingClientRect();
+    if(bw < r.width*0.12 && bh < r.height*0.12) return;   // demasiado chico, segui dibujando
+    validado = true;
+    silueta = { norm: puntos.map(p=>({x:(p.x-minX)/bw, y:(p.y-minY)/bh})), aspecto: bw/bh };
+    guardarSilueta(silueta);
+    pintarTrazo(true);                                    // se cierra y se rellena en negro
+    post.classList.add('on');                             // aparece "Eso que acabas..." + Listo (400ms)
+  }
+
+  btnListo.addEventListener('click', ()=> salirLienzo(lienzo));
+
+  window.addEventListener('resize', ()=>{ if(!validado){ pintarPapel(papel); ajustar(trazoCv); pintarTrazo(false); } });
 }
 
-function llegarAlMuro(){
-  if(muroPintado) return;
-  muroPintado = true;
-  if(silueta){
-    compEl.classList.add('llego');            // el companion se suma y se apaga
-  } else {
-    // si nunca dibujo, lo invitamos a hacerlo
-    const aviso = document.createElement('p');
-    aviso.className = 'sin-silueta bloque';
-    aviso.textContent = 'Todavía no dibujaste tu silueta. Volvé arriba para sumarla.';
-    muroLienzo.parentElement.insertAdjacentElement('afterend', aviso);
+/* textura de papel arrugado, pintada por codigo (sin imagen externa) */
+function pintarPapel(cv){
+  const r = ajustar(cv);
+  const c = cv.getContext('2d');
+  const w=r.width, h=r.height;
+  c.fillStyle = color('--papel'); c.fillRect(0,0,w,h);
+  for(let i=0;i<6;i++){                                  // pliegues suaves
+    const x=Math.random()*w, y=Math.random()*h, rad=Math.max(w,h)*(0.3+Math.random()*0.45);
+    const g=c.createRadialGradient(x,y,0,x,y,rad);
+    g.addColorStop(0, Math.random()>0.5 ? 'rgba(255,250,234,0.20)' : 'rgba(78,66,42,0.16)');
+    g.addColorStop(1,'rgba(0,0,0,0)');
+    c.fillStyle=g; c.fillRect(0,0,w,h);
   }
-  pintarMuro();
+  const n = Math.min(5200, Math.floor(w*h/110));         // grano
+  for(let i=0;i<n;i++){
+    c.fillStyle = Math.random()>0.5 ? 'rgba(255,255,255,0.05)' : 'rgba(55,46,32,0.06)';
+    c.fillRect(Math.random()*w, Math.random()*h, 1.3, 1.3);
+  }
+  const v=c.createRadialGradient(w/2,h/2,Math.min(w,h)*0.18,w/2,h/2,Math.max(w,h)*0.72);
+  v.addColorStop(0,'rgba(0,0,0,0)'); v.addColorStop(1,'rgba(35,26,12,0.24)');
+  c.fillStyle=v; c.fillRect(0,0,w,h);
 }
 
-/* ---------- 6. RESIZE ---------- */
-let t;
-window.addEventListener('resize', ()=>{
-  clearTimeout(t);
-  t = setTimeout(()=>{
-    if(compEl.classList.contains('on')) dibujarCompanion();
-    if(muroPintado) pintarMuro();
-  }, 180);
-});
+/* salida del lienzo: el papel se expande a pantalla completa (el zoom al trazo va en la etapa 2) */
+function salirLienzo(lienzo){
+  const escenaEl = lienzo.closest('.lienzo-escena');
+  // fade-out de los textos y la UI exterior
+  escenaEl.querySelectorAll('.titulo, .instruccion, .post').forEach(e=> e.classList.remove('in','on'));
+  // el rectangulo de papel crece hasta ocupar todo
+  lienzo.classList.add('expandiendo');
+  setTimeout(irRecorrido, reducido ? 0 : 950);
+}
 
-/* primer ajuste del tablero cuando entra en pantalla */
-const ioTablero = new IntersectionObserver((en)=>{
-  en.forEach(e=>{ if(e.isIntersecting){ ajustar(lienzo); pintarTrazo(); } });
-}, { threshold:.2 });
-ioTablero.observe(tablero);
+/* =========================================================
+   PANTALLA 4+ — RECORRIDO INMERSIVO  (stub, etapa 2)
+   ========================================================= */
+function irRecorrido(){
+  escena.innerHTML = `<section class="stub"><p>Acá arranca el recorrido inmersivo con paralaje y desgarros. Lo construimos en la etapa 2, sobre esta misma base.</p></section>`;
+  const p = escena.querySelector('.stub p');
+  p.classList.add('fade'); entrar(p, 800);
+}
+
+/* ---------- arranque ---------- */
+irIntro();

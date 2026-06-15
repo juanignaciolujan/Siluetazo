@@ -3,25 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Silueteando — Un acercamiento al Siluetazo</title>
-<meta name="description" content="Un acercamiento al Siluetazo como hecho gráfico. Dibujá tu silueta y caminá con ella por la historia.">
-
+<title>El Siluetazo — Un acercamiento al hecho gráfico</title>
 <link rel="stylesheet" href="styles.css">
-
-<!-- tipografias: afiche (Anton), cuerpo (Work Sans), maquina de escribir (Special Elite) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Special+Elite&family=Work+Sans:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Special+Elite&family=Work+Sans:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-
-  <!-- el recorrido se construye desde datos.js -->
-  <main id="scroll"></main>
-
-  <!-- la silueta dibujada que camina con vos (firma de la pieza) -->
-  <div class="companion" id="companion" aria-hidden="true"><canvas></canvas></div>
-
-  <!-- contenido editable primero, despues la logica -->
+  <!-- escena unica; cada "pantalla" es un estado que entra y sale -->
+  <main id="escena"></main>
   <script src="datos.js"></script>
   <script src="app.js"></script>
 </body>

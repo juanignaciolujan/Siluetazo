@@ -1,149 +1,97 @@
 /* =========================================================
-   SILUETEANDO — diseño
-   Materiales del Siluetazo: noche, muro, papel kraft, tinta, rojo.
-   Cambiá los valores de :root para reajustar todo el tono.
+   EL SILUETAZO — diseño (version final, una pagina)
+   Etapa 1: pantallas 1 a 3.
    ========================================================= */
 :root{
-  --noche:   #12151a;   /* fondo del relato, la ciudad de noche */
-  --muro:    #1c1814;   /* superficie de muro, mas calida */
-  --papel:   #d9c7a1;   /* las siluetas, recortes de papel kraft */
-  --hueso:   #ece3d2;   /* texto principal */
-  --apagado: #8d846f;   /* texto secundario, fichas */
-  --rojo:    #b03a2c;   /* consignas y el numero, con cuentagotas */
+  --negro:   #000000;   /* fondo pleno del relato */
+  --papel:   #e7d9bd;   /* textura de papel (base, el ruido lo pinta el JS) */
+  --tinta:   #111010;   /* trazo de la silueta */
+  --hueso:   #f2efe9;   /* texto sobre negro */
+  --apagado: #9a9282;   /* texto secundario */
+  --rojo:    #b03a2c;    /* chinches y acentos (se usa mas adelante) */
 
-  --display: "Anton", "Arial Narrow", system-ui, sans-serif;
-  --cuerpo:  "Work Sans", system-ui, -apple-system, sans-serif;
-  --maquina: "Special Elite", "Courier New", ui-monospace, monospace;
+  --display: "Anton", "Arial Narrow", system-ui, sans-serif;  /* afiche, titulares */
+  --cuerpo:  "Work Sans", system-ui, -apple-system, sans-serif; /* cuerpo */
+  --maquina: "Special Elite", "Courier New", monospace;        /* maquina de escribir */
 }
 
-*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-
-html{ scroll-behavior:smooth; }
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; margin:0; }
+html,body{ height:100%; }
 body{
-  margin:0; background:var(--noche); color:var(--hueso);
-  font-family:var(--cuerpo); line-height:1.5;
-  overscroll-behavior-y:none;
+  background:var(--negro); color:var(--hueso);
+  font-family:var(--cuerpo); line-height:1.5; overflow:hidden; /* etapa 1 sin scroll */
   -webkit-font-smoothing:antialiased;
 }
+#escena{ position:fixed; inset:0; }
 
-/* ---------------- estructura de secciones ---------------- */
-.seccion{
-  position:relative;
-  min-height:100svh;
-  display:flex; flex-direction:column; justify-content:center;
-  gap:18px;
-  padding:14svh 24px;
-  border-top:1px solid rgba(217,199,161,.07);
-}
-.seccion:first-child{ border-top:0; }
+/* ===== utilidades de aparicion ===== */
+.fade{ opacity:0; transition:opacity var(--t,800ms) ease; }
+.fade.in{ opacity:1; }
 
-/* aparicion al hacer scroll */
-.seccion .bloque{
-  opacity:0; transform:translateY(22px);
-  transition:opacity .8s ease, transform .8s ease;
+/* =========================================================
+   PANTALLA 1 — INTRO
+   ========================================================= */
+.intro{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:24px; }
+.intro .titulo{
+  font-family:var(--display); font-weight:400; text-transform:uppercase;
+  font-size:clamp(44px, 15vw, 120px); line-height:.92; letter-spacing:.01em;
 }
-.seccion.visible .bloque{ opacity:1; transform:none; }
+.intro .subtitulo{ font-family:var(--maquina); color:var(--apagado); font-size:clamp(13px,3.6vw,17px); letter-spacing:.06em; margin-top:14px; }
+.intro .cta{
+  position:absolute; bottom:14svh; left:50%; transform:translateX(-50%);
+  font-family:var(--cuerpo); font-weight:400; font-size:15px; letter-spacing:.02em;
+  color:var(--hueso); background:none; border:0; cursor:pointer; padding:6px 2px;
+}
+/* subrayado que se dibuja desde el centro en el hover */
+.intro .cta::after{
+  content:""; position:absolute; left:50%; bottom:-2px; width:0; height:1px;
+  background:currentColor; transition:width .3s ease-out, left .3s ease-out;
+}
+.intro .cta:hover::after{ left:0; width:100%; }
+.intro .cta:active{ opacity:.7; }
 
-/* numero de ficha (es un recorrido ordenado, por eso numeramos) */
-.ficha{
-  font-family:var(--maquina); font-size:13px; letter-spacing:.18em;
-  color:var(--apagado); text-transform:uppercase;
-}
-.ficha .reg{ color:var(--rojo); }
+/* =========================================================
+   PANTALLA 2 — SECUENCIA NARRATIVA
+   ========================================================= */
+.narrativa{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; }
+.placa{ position:absolute; opacity:0; transition:opacity 600ms ease; max-width:24ch; }
+.placa.on{ opacity:1; }
+.placa .h1{ font-family:var(--display); font-weight:400; text-transform:uppercase; font-size:clamp(30px,9vw,60px); line-height:1; }
+.placa .h2{ font-family:var(--maquina); color:var(--apagado); font-size:clamp(15px,4.4vw,20px); line-height:1.35; margin-top:14px; }
 
-/* titulares tipo afiche */
-.titulo{
-  font-family:var(--display); font-weight:400;
-  font-size:clamp(34px, 11vw, 76px); line-height:.96;
-  letter-spacing:.005em; margin:0; text-transform:uppercase;
-}
-.lineas p{ font-size:clamp(17px,4.6vw,22px); margin:.35em 0; max-width:30ch; }
-.pie{ font-size:14px; color:var(--apagado); max-width:42ch; margin-top:10px; }
+/* =========================================================
+   PANTALLA 3 — LIENZO (el gancho interactivo)
+   ========================================================= */
+.lienzo-escena{ position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px; padding:3svh 20px; }
+.lienzo-escena .titulo{ font-family:var(--display); font-weight:400; text-transform:uppercase; font-size:clamp(24px,7vw,42px); line-height:1; text-align:center; }
+.lienzo-escena .instruccion{ font-family:var(--cuerpo); color:var(--apagado); font-size:14px; text-align:center; max-width:34ch; }
 
-/* la cita, voz de la calle */
-.cita{
-  font-family:var(--maquina); font-size:clamp(16px,4.4vw,20px);
-  color:var(--hueso); border-left:2px solid var(--rojo);
-  padding-left:14px; max-width:34ch; margin-top:6px;
-}
+/* el rectangulo de papel: papel + guia + lienzo de trazo */
+.lienzo{ position:relative; width:min(86vw, 520px); height:52svh; border-radius:2px; overflow:hidden; touch-action:none; box-shadow:0 14px 40px rgba(0,0,0,.55); }
+.lienzo .papel{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:0; }
+.lienzo .guia{ position:absolute; inset:0; z-index:1; display:flex; align-items:center; justify-content:center; pointer-events:none; }
+.lienzo .guia .fig{ height:84%; width:auto; fill:none; stroke:#5c533f; stroke-width:3; stroke-dasharray:4 9; stroke-linecap:round; opacity:.20; }
+.lienzo #trazo{ position:absolute; inset:0; z-index:2; width:100%; height:100%; display:block; }
 
-/* consigna estampada */
-.consigna{
-  align-self:flex-start;
-  font-family:var(--maquina); font-size:13px; letter-spacing:.12em;
-  text-transform:uppercase; color:var(--rojo);
-  border:1px solid var(--rojo); padding:7px 12px; border-radius:2px;
-  transform:rotate(-1.5deg);
+/* UI post-dibujo */
+.post{ width:min(86vw,520px); display:flex; align-items:center; justify-content:space-between; gap:14px; opacity:0; transition:opacity 400ms ease; pointer-events:none; }
+.post.on{ opacity:1; pointer-events:auto; }
+.post .frase{ font-family:var(--maquina); color:var(--hueso); font-size:14px; line-height:1.3; max-width:24ch; text-align:left; }
+.post .listo{
+  flex:0 0 auto; font-family:var(--cuerpo); font-weight:700; font-size:15px; letter-spacing:.02em;
+  background:var(--hueso); color:var(--negro); border:1px solid var(--hueso);
+  padding:13px 26px; border-radius:2px; cursor:pointer; transition:background .2s ease, color .2s ease;
 }
+.post .listo:hover{ background:var(--negro); color:var(--hueso); }  /* invierte colores */
+.post .listo:active{ opacity:.8; }
 
-/* ---------------- portada ---------------- */
-.portada{ align-items:flex-start; justify-content:flex-end; padding-bottom:16svh; }
-.portada .marca{ font-family:var(--display); font-size:clamp(56px,20vw,140px); line-height:.9; text-transform:uppercase; margin:0; }
-.portada .sub{ font-family:var(--maquina); color:var(--apagado); letter-spacing:.1em; margin-top:8px; }
-.portada .entrada{ font-family:var(--maquina); font-size:12px; letter-spacing:.2em; color:var(--apagado); margin-top:34px; text-transform:uppercase; animation:respira 2.4s ease-in-out infinite; }
-@keyframes respira{ 0%,100%{ opacity:.4 } 50%{ opacity:1 } }
+/* transicion de salida del lienzo: el papel se expande a pantalla completa */
+.lienzo.expandiendo{ position:fixed; inset:0; width:100vw; height:100vh; z-index:50; border-radius:0; transition:all 900ms cubic-bezier(.7,0,.3,1); }
 
-/* ---------------- seccion de dibujo ---------------- */
-.dibujo{ align-items:stretch; }
-.instruccion{ font-family:var(--display); font-size:clamp(28px,9vw,52px); text-transform:uppercase; margin:0; line-height:1; }
-.ayuda{ font-size:15px; color:var(--apagado); max-width:34ch; }
-.tablero{
-  position:relative; width:100%; height:48svh; margin-top:6px;
-  border:1px dashed rgba(217,199,161,.28); border-radius:3px;
-  background:rgba(0,0,0,.18); touch-action:none; overflow:hidden;
-}
-.tablero canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
-.tablero .marca-toque{
-  position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-  font-family:var(--maquina); font-size:14px; color:var(--apagado); pointer-events:none;
-}
-.controles{ display:flex; gap:10px; margin-top:12px; }
-.btn{
-  flex:1; appearance:none; border:0; cursor:pointer; padding:15px; border-radius:2px;
-  font-family:var(--maquina); font-size:14px; letter-spacing:.08em; text-transform:uppercase;
-  background:var(--papel); color:var(--noche); transition:transform .08s ease, opacity .2s ease;
-}
-.btn:active{ transform:translateY(1px); }
-.btn:disabled{ opacity:.3; pointer-events:none; }
-.btn--ghost{ background:transparent; color:var(--apagado); box-shadow:inset 0 0 0 1px rgba(217,199,161,.25); }
-.cierre-dibujo{ font-family:var(--maquina); color:var(--hueso); font-size:15px; margin-top:14px; opacity:0; transition:opacity .6s ease; }
-.cierre-dibujo.on{ opacity:1; }
-
-/* ---------------- la silueta que camina (firma) ---------------- */
-.companion{
-  position:fixed; left:16px; bottom:14px; width:74px; height:108px; z-index:40;
-  pointer-events:none; opacity:0; transform:translateY(10px);
-  transition:opacity .6s ease, transform .6s ease;
-}
-.companion.on{ opacity:1; transform:none; animation:caminar 1.5s ease-in-out infinite; }
-.companion canvas{ width:100%; height:100%; display:block; }
-@keyframes caminar{
-  0%,100%{ transform:translateY(0) rotate(-1.2deg) }
-  50%{ transform:translateY(-5px) rotate(1.2deg) }
-}
-.companion.llego{ animation:none; opacity:0; } /* al llegar al muro, se suma y se apaga */
-
-/* ---------------- el muro final ---------------- */
-.cierre{ align-items:flex-start; }
-.muro{
-  position:relative; width:100%; height:50svh; margin:10px 0;
-  border-radius:3px; overflow:hidden; background:var(--muro);
-  box-shadow:inset 0 0 0 1px rgba(0,0,0,.4);
-}
-.muro canvas{ position:absolute; inset:0; width:100%; height:100%; display:block; }
-.numerazo{
-  font-family:var(--display); font-size:clamp(48px,17vw,120px); line-height:.9;
-  color:var(--rojo); text-transform:uppercase; margin:4px 0 0;
-}
-.numerazo small{ display:block; font-family:var(--maquina); font-size:13px; letter-spacing:.18em; color:var(--apagado); -webkit-text-fill-color:var(--apagado); }
-.sin-silueta{ font-family:var(--maquina); font-size:14px; color:var(--apagado); }
-
-/* ---------------- accesibilidad ---------------- */
-:focus-visible{ outline:2px solid var(--rojo); outline-offset:3px; }
+/* stub temporal del recorrido (etapa 2) */
+.stub{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; }
+.stub p{ font-family:var(--maquina); color:var(--apagado); font-size:15px; max-width:30ch; }
 
 @media (prefers-reduced-motion: reduce){
-  html{ scroll-behavior:auto; }
-  .seccion .bloque{ transition:none; opacity:1; transform:none; }
-  .companion.on{ animation:none; }
-  .portada .entrada{ animation:none; }
+  .fade, .placa, .post, .lienzo.expandiendo{ transition-duration:1ms; }
 }
