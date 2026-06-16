@@ -254,6 +254,8 @@ function salirLienzo(lienzo){
    ========================================================= */
 function irRecorrido(){
   const sil = silueta || cargarSilueta();
+  const VIDEO = 'https://www.youtube.com/watch?v=TaqDxMBPYdk';
+  const LOGO_X = `<svg class="x-svg" viewBox="0 0 24 24" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>`;
 
   // habilitar scroll y montar capas de fondo fijas
   document.body.classList.add('recorriendo');
@@ -288,9 +290,50 @@ function irRecorrido(){
     return '';
   }
 
-  escena.innerHTML = `<div class="recorrido">${DATOS.desarrollo.map(seccionHTML).join('')}
-    <section class="cierre-stub"><p>Acá va el cierre: el muro de las 30.000, el documental y el compartir. Lo armamos en la etapa 3, sobre esta base.</p></section>
-  </div>`;
+  const cierreHTML = ()=> `
+    <section class="seccion-r cierre c-muro" data-bg="negro">
+      <div class="muro-wrap rev"><canvas id="muro"></canvas></div>
+      <div class="muro-cap rev">
+        <h2 class="c-titulo">Tu silueta, entre las 30.000</h2>
+        <p class="c-bajada">Hacer memoria, hoy, también es un gesto gráfico.</p>
+      </div>
+    </section>
+
+    <section class="seccion-r cierre c-doc" data-bg="negro">
+      <div class="eje"></div>
+      <div class="doc-ext rev">
+        <h3 class="doc-invita">Si querés saber más sobre el Siluetazo, te invitamos a ver el documental.</h3>
+        <a class="thumb" href="${VIDEO}" target="_blank" rel="noopener">
+          <img src="https://img.youtube.com/vi/TaqDxMBPYdk/hqdefault.jpg" alt="Documental sobre el Siluetazo"
+               onerror="this.style.display='none';this.parentNode.classList.add('sin-img')">
+          <span class="thumb-ph">documental<br>(miniatura)</span>
+          <span class="play" aria-hidden="true">►</span>
+          <span class="dur">24:06</span>
+        </a>
+        <p class="ficha">Este video forma parte de la investigación “Imágenes del siluetazo y otras estrategias creativas en el movimiento de Derechos Humanos en la Argentina” (2010-2011), de Fernanda Carvajal, Marcelo Expósito, Cora Gamarnik, Ana Longoni y Jaime Vindel.</p>
+      </div>
+    </section>
+
+    <section class="seccion-r cierre c-cta" data-bg="negro">
+      <div class="eje"></div>
+      <div class="cta rev">
+        <p class="cta-texto">En 1983, el espacio fue la calle. Hoy, la memoria también disputa las redes.</p>
+        <div class="cta-acciones">
+          <button id="compartir" class="btn-x">${LOGO_X} Compartir mi huella</button>
+          <button id="descargar" class="btn-sec">Descargar mi huella (.png)</button>
+        </div>
+      </div>
+    </section>
+
+    <footer class="pie">
+      <div class="pie-grid">
+        <p class="pie-acad">Experiencia interactiva desarrollada en el marco de la asignatura Laboratorio Digital. Licenciatura en Diseño, Universidad Provincial de Córdoba (UPC). Año 2026.</p>
+        <p class="pie-cc">Este sitio y sus contenidos están bajo licencia <a href="https://creativecommons.org/licenses/by-nc-nd/4.0/deed.es" target="_blank" rel="noopener">Creative Commons Atribución-NoComercial-SinDerivadas 4.0 Internacional (CC BY-NC-ND 4.0)</a>. Se permite la distribución siempre que se reconozca la autoría, no se use con fines comerciales y no se generen obras derivadas.</p>
+      </div>
+      <button class="volver-inicio" id="volverPie">Volver al inicio ↑</button>
+    </footer>`;
+
+  escena.innerHTML = `<div class="recorrido">${DATOS.desarrollo.map(seccionHTML).join('')}${cierreHTML()}</div>`;
   window.scrollTo(0,0);
 
   // capas de fondo
@@ -326,6 +369,59 @@ function irRecorrido(){
   const io = new IntersectionObserver(es=> es.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); }), {threshold:.3});
   secciones.forEach(s=> io.observe(s));
 
+  /* ----- cierre (etapa 3): muro de las 30.000 + acciones ----- */
+  function dibujarMuro(){
+    const cv = document.getElementById('muro'); if(!cv || !sil) return;
+    const r = ajustar(cv);
+    const c = cv.getContext('2d');
+    c.clearRect(0,0,r.width,r.height);
+    const cell = Math.max(34, Math.min(r.width, r.height)/12);
+    const cols = Math.ceil(r.width/cell)+1, rows = Math.ceil(r.height/cell)+1;
+    const hc = Math.floor(cols/2), hr = Math.floor(rows/2);   // la del usuario, al centro
+    for(let row=0; row<rows; row++) for(let col=0; col<cols; col++){
+      c.save(); c.translate(col*cell + cell*0.5, row*cell + cell*0.5);
+      if(col===hc && row===hr){
+        const s = cell*1.3, caja = {x:-s/2, y:-s/2, w:s, h:s};
+        c.shadowColor='rgba(176,58,44,.75)'; c.shadowBlur=20;
+        rellenarSilueta(c, sil, caja, '#f1e7cf', false);      // hueso, destaca
+        c.shadowBlur=0;
+        rellenarSilueta(c, sil, caja, '#b03a2c', true, 3);    // contorno rojo
+      } else {
+        c.rotate((Math.random()*2-1)*0.18);
+        const s = cell*0.74*(0.82+Math.random()*0.3), caja = {x:-s/2, y:-s/2, w:s, h:s};
+        c.globalAlpha = 0.10 + Math.random()*0.22;            // gentío anónimo, gris tenue
+        rellenarSilueta(c, sil, caja, '#cfcabf', false);
+      }
+      c.restore();
+    }
+    // viñeta: el gentío se pierde hacia los bordes
+    const g = c.createRadialGradient(r.width/2, r.height/2, Math.min(r.width,r.height)*0.18, r.width/2, r.height/2, Math.max(r.width,r.height)*0.62);
+    g.addColorStop(0,'rgba(0,0,0,0)'); g.addColorStop(1,'rgba(0,0,0,0.9)');
+    c.globalAlpha=1; c.fillStyle=g; c.fillRect(0,0,r.width,r.height);
+  }
+
+  function compartirX(){
+    const url = location.href.split('#')[0];
+    const texto = 'Dibujé mi silueta. En 1983, el espacio fue la calle. Hoy, la memoria también disputa las redes. Sumá tu voz para que el pacto de silencio no se repita. #ElSiluetazo';
+    window.open('https://twitter.com/intent/tweet?text='+encodeURIComponent(texto)+'&url='+encodeURIComponent(url), '_blank', 'noopener');
+  }
+  function descargarHuella(){
+    if(!sil) return;
+    const tam=1000, m=130, cv=document.createElement('canvas'); cv.width=tam; cv.height=tam;
+    const c=cv.getContext('2d');
+    rellenarSilueta(c, sil, {x:m, y:m, w:tam-2*m, h:tam-2*m}, '#141210', true, 9);
+    cv.toBlob(b=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='mi-huella.png'; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); });
+  }
+
+  const alInicio = ()=> window.scrollTo({ top:0, behavior:'smooth' });
+  document.body.insertAdjacentHTML('beforeend', `<button class="volver-flota" id="volverFlota" aria-label="Volver a recorrer">↑</button>`);
+  const volverFlota = document.getElementById('volverFlota');
+  volverFlota.addEventListener('click', alInicio);
+  document.getElementById('volverPie')?.addEventListener('click', alInicio);
+  document.getElementById('compartir')?.addEventListener('click', compartirX);
+  document.getElementById('descargar')?.addEventListener('click', descargarHuella);
+  requestAnimationFrame(()=> requestAnimationFrame(dibujarMuro));
+
   // loop de scroll: paralaje de la silueta + crossfade papel/negro + desgarro
   let pidiendo = false;
   function actualizar(){
@@ -348,6 +444,12 @@ function irRecorrido(){
     secciones.forEach(s=>{ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.height/2)-vh/2); if(d<mejor){ mejor=d; activa=s; } });
     cortina.style.opacity = (activa && activa.dataset.bg === 'negro') ? '1' : '0';
 
+    // boton flotante visible al acercarse al final
+    if(volverFlota){
+      const cerca = (window.scrollY + vh) > (document.body.scrollHeight - vh*1.2);
+      volverFlota.classList.toggle('ver', cerca);
+    }
+
     // desgarro: progreso dentro de la seccion alta (la nota queda fija mientras se rompe)
     if(!reducido) arribas.forEach(a=>{
       const r = a.closest('.seccion-r').getBoundingClientRect();
@@ -360,7 +462,7 @@ function irRecorrido(){
     pidiendo = false;
   }
   window.addEventListener('scroll', ()=>{ if(!pidiendo){ requestAnimationFrame(actualizar); pidiendo=true; } }, {passive:true});
-  window.addEventListener('resize', ()=>{ dibujarFondo(); actualizar(); });
+  window.addEventListener('resize', ()=>{ dibujarFondo(); dibujarMuro(); actualizar(); });
   actualizar();
 }
 
