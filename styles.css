@@ -114,7 +114,7 @@ body.recorriendo{ overflow-y:auto; height:auto; }
 .fondo-papel{ position:fixed; inset:0; z-index:0; }
 .fondo-papel canvas{ width:100%; height:100%; display:block; }
 .fondo-silueta{ position:fixed; inset:0; z-index:1; }
-.fondo-silueta canvas{ width:100%; height:100%; display:block; will-change:transform; }
+.fondo-silueta canvas{ width:100%; height:100%; display:block; transform-origin:0 0; will-change:transform; }
 .cortina{ position:fixed; inset:0; z-index:2; background:var(--negro); opacity:1; transition:opacity 700ms ease; pointer-events:none; }
 
 .recorrido{ position:relative; z-index:3; }
@@ -148,16 +148,18 @@ body.recorriendo{ overflow-y:auto; height:auto; }
 .nota h3{ font-family:var(--display); text-transform:uppercase; font-size:clamp(20px,5.6vw,30px); margin:6px 0 10px; line-height:1; }
 .nota p{ font-family:var(--cuerpo); font-size:15px; line-height:1.5; }
 .nota b{ font-weight:700; }
-.nota .chinche{ position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:22px; height:22px; border-radius:50%;
-  background:radial-gradient(circle at 36% 30%, #e35a4b 0%, #b03022 55%, #7c1d14 100%); box-shadow:0 4px 6px rgba(0,0,0,.5), inset 0 -2px 3px rgba(0,0,0,.3); z-index:5; }
+/* chinche anclada al marco/stack (fuera del recorte dentado de la nota), recta y centrada */
+.chinche{ position:absolute; top:-9px; left:50%; transform:translateX(-50%); width:22px; height:22px; border-radius:50%;
+  background:radial-gradient(circle at 36% 30%, #e35a4b 0%, #b03022 55%, #7c1d14 100%); box-shadow:0 4px 6px rgba(0,0,0,.5), inset 0 -2px 3px rgba(0,0,0,.3); z-index:6; }
 
 .r-nota{ align-items:center; }
-.r-nota .marco{ width:min(84%,360px); }
-.r-nota.lado-der .marco{ transform:rotate(-2deg); }
-.r-nota.lado-izq .marco{ transform:rotate(2deg); }
+.r-nota .marco{ position:relative; width:min(84%,360px); }
+.r-nota.lado-der .nota{ transform:rotate(-2deg); }
+.r-nota.lado-izq .nota{ transform:rotate(2deg); }
 
-/* nota doble apilada con desgarro */
-.r-nota-doble{ align-items:center; }
+/* nota doble apilada con desgarro: seccion alta + contenido sticky para leer mientras se rompe */
+.r-nota-doble{ display:block; min-height:210svh; padding:0; }
+.r-nota-doble .sticky{ position:sticky; top:0; height:100svh; display:flex; align-items:center; justify-content:center; padding:0 24px; }
 .nota-stack{ position:relative; width:min(84%,360px); }
 .nota-stack .abajo{ position:relative; }
 .nota-stack .arriba{ position:absolute; inset:0; transform-origin:top center; will-change:transform, opacity; }

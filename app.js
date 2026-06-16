@@ -25,6 +25,13 @@ function guardarSilueta(s){ try{ sessionStorage.setItem('siluetazo:silueta', JSO
 function cargarSilueta(){ try{ const r = sessionStorage.getItem('siluetazo:silueta'); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
 const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
 
+/* caja real (contain) donde se dibuja la silueta, para mapear puntos de foco */
+function contener(sil, caja){
+  const a = sil.aspecto; let w=caja.w, h=caja.w/a;
+  if(h>caja.h){ h=caja.h; w=caja.h*a; }
+  return { ox:caja.x+(caja.w-w)/2, oy:caja.y+(caja.h-h)/2, w, h };
+}
+
 /* dibuja la silueta guardada dentro de una caja (contain); contorno o relleno */
 function rellenarSilueta(c, sil, caja, tinta, contorno, lw){
   if(!sil) return;
@@ -257,22 +264,27 @@ function irRecorrido(){
     <div class="fondo-silueta"><canvas id="fSil"></canvas></div>
     <div class="cortina" id="cortina"></div>`);
 
-  const nota = (t,c)=> `<div class="nota"><span class="chinche"></span><h3>${t}</h3><p>${c}</p></div>`;
-  const ph   = '<div class="foto-ph">imagen de archivo<br>(placeholder)</div>';
+  const nota = (t,c)=> `<div class="nota"><h3>${t}</h3><p>${c}</p></div>`;
+  const phHTML = (label)=> `<div class="foto-ph">${label || 'imagen de archivo<br>(placeholder)'}</div>`;
 
   function seccionHTML(s){
     if(s.tipo === 'contexto')
       return `<section class="seccion-r r-contexto" data-bg="papel"><div class="eje rev"></div><div class="texto rev">${s.html}</div></section>`;
-    if(s.tipo === 'doc')
+    if(s.tipo === 'doc'){
+      const fotos = Array.from({length:s.fotos||1}, ()=> phHTML(s.fotoTexto)).join('');
       return `<section class="seccion-r r-doc" data-bg="negro"><div class="eje"></div>
-                <div class="fotos rev">${ph.repeat(s.fotos||1)}</div>
+                <div class="fotos rev">${fotos}</div>
                 <p class="cita rev"><span class="comillas">“</span>${s.cita}</p></section>`;
+    }
     if(s.tipo === 'nota')
-      return `<section class="seccion-r r-nota lado-${s.lado||'der'}" data-bg="papel"><div class="marco rev">${nota(s.titulo,s.cuerpo)}</div></section>`;
+      return `<section class="seccion-r r-nota lado-${s.lado||'der'}" data-bg="papel">
+                <div class="marco rev"><span class="chinche"></span>${nota(s.titulo,s.cuerpo)}</div></section>`;
     if(s.tipo === 'nota-doble')
-      return `<section class="seccion-r r-nota-doble" data-bg="papel"><div class="nota-stack rev">
-                <div class="abajo">${nota(s.abajo.titulo,s.abajo.cuerpo)}</div>
-                <div class="arriba">${nota(s.arriba.titulo,s.arriba.cuerpo)}</div></div></section>`;
+      // seccion alta + contenido sticky: la nota se fija mientras se desgarra (legible)
+      return `<section class="seccion-r r-nota-doble" data-bg="papel"><div class="sticky">
+                <div class="nota-stack rev"><span class="chinche"></span>
+                  <div class="abajo">${nota(s.abajo.titulo,s.abajo.cuerpo)}</div>
+                  <div class="arriba">${nota(s.arriba.titulo,s.arriba.cuerpo)}</div></div></div></section>`;
     return '';
   }
 
@@ -286,6 +298,15 @@ function irRecorrido(){
   const fSil   = document.getElementById('fSil');
   const cortina= document.getElementById('cortina');
 
+  // puntos de foco sobre la figura (coords 0..1): cabeza, manos, torso, caderas, piernas
+  const TARGETS = [
+    {fx:.50,fy:.12,s:2.2}, {fx:.90,fy:.42,s:2.3}, {fx:.50,fy:.46,s:1.9},
+    {fx:.10,fy:.42,s:2.3}, {fx:.50,fy:.60,s:2.0}, {fx:.64,fy:.90,s:2.2},
+    {fx:.36,fy:.90,s:2.2}, {fx:.50,fy:.50,s:1.7}
+  ];
+  const suave = t => t*t*(3-2*t);
+
+  let rectSil = null;
   function dibujarFondo(){
     pintarPapel(fPapel);
     const r = ajustar(fSil);
@@ -293,6 +314,7 @@ function irRecorrido(){
     c.clearRect(0,0,r.width,r.height);
     const lado = Math.min(r.width, r.height);
     const box = { x:r.width*0.5 - lado*0.42, y:r.height*0.5 - lado*0.40, w:lado*0.84, h:lado*0.80 };
+    rectSil = contener(sil, box);
     rellenarSilueta(c, sil, box, 'rgba(20,18,16,0.92)', true, 4);   // la línea negra del trazo
   }
   requestAnimationFrame(()=> requestAnimationFrame(dibujarFondo));
@@ -307,13 +329,18 @@ function irRecorrido(){
   // loop de scroll: paralaje de la silueta + crossfade papel/negro + desgarro
   let pidiendo = false;
   function actualizar(){
-    const vh = window.innerHeight;
+    const vh = window.innerHeight, vw = window.innerWidth;
 
-    // paralaje + leve zoom de la silueta de fondo (sobrevolar el dibujo)
-    if(!reducido){
+    // camara de fondo: enfoca distintas partes de la figura segun el avance del scroll
+    if(!reducido && sil && rectSil){
       const max = Math.max(1, document.body.scrollHeight - vh);
       const prog = clamp(window.scrollY / max, 0, 1);
-      fSil.style.transform = `translateY(${(-window.scrollY*0.12).toFixed(0)}px) scale(${(1.05 + prog*0.5).toFixed(3)})`;
+      const f = prog * (TARGETS.length - 1);
+      const i0 = Math.floor(f), i1 = Math.min(TARGETS.length-1, i0+1), t = suave(f - i0);
+      const A = TARGETS[i0], B = TARGETS[i1];
+      const fx = A.fx+(B.fx-A.fx)*t, fy = A.fy+(B.fy-A.fy)*t, S = A.s+(B.s-A.s)*t;
+      const px = rectSil.ox + fx*rectSil.w, py = rectSil.oy + fy*rectSil.h;
+      fSil.style.transform = `translate(${(vw/2 - px*S).toFixed(1)}px, ${(vh/2 - py*S).toFixed(1)}px) scale(${S.toFixed(3)})`;
     }
 
     // seccion activa -> cortina (negra en documentales, transparente en papel)
@@ -321,11 +348,11 @@ function irRecorrido(){
     secciones.forEach(s=>{ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.height/2)-vh/2); if(d<mejor){ mejor=d; activa=s; } });
     cortina.style.opacity = (activa && activa.dataset.bg === 'negro') ? '1' : '0';
 
-    // desgarro de la nota de arriba, atado al scroll de su seccion
+    // desgarro: progreso dentro de la seccion alta (la nota queda fija mientras se rompe)
     if(!reducido) arribas.forEach(a=>{
       const r = a.closest('.seccion-r').getBoundingClientRect();
-      const p = clamp((vh*0.5 - (r.top + r.height*0.5)) / (vh*0.5), 0, 1);
-      const tear = clamp((p - 0.12) / 0.55, 0, 1);
+      const prog = clamp(-r.top / Math.max(1, r.height - vh), 0, 1);
+      const tear = clamp((prog - 0.15) / 0.5, 0, 1);
       a.style.transform = `translateY(${(tear*130).toFixed(0)}%) rotate(${(3 + tear*15).toFixed(1)}deg) scale(${(1 + tear*0.12).toFixed(3)})`;
       a.style.opacity = (1 - tear).toFixed(2);
     });

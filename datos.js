@@ -54,13 +54,16 @@ const DATOS = {
       cita:"Rodolfo Aguerreberry, Julio Flores y Guillermo Kexel." },
 
     { tipo:"nota", bg:"papel", lado:"der", titulo:"Las Abuelas",
-      cuerpo:"“Las siluetas deben estar de pie, erguidas. En el suelo eran símbolo de muerte.” Fueron las Abuelas las que preguntaron dónde estaban las siluetas de las embarazadas y los niños desaparecidos. Nadie lo había pensado." },
+      cuerpo:"“Las siluetas deben estar de pie, erguidas. En el suelo eran símbolo de muerte.”" },
+
+    { tipo:"doc", bg:"negro", fotos:1, fotoTexto:"silueta de embarazadas",
+      cita:"Fueron las Abuelas las que vinieron al local y preguntaron dónde estaban las siluetas de las embarazadas y los niños desaparecidos. Ninguno de nosotros lo había pensado." },
+
+    { tipo:"nota", bg:"papel", lado:"izq", titulo:"El silencio",
+      cuerpo:"Las siluetas ayudaron a la ruptura del pacto de silencio. Lo denunciaron." },
 
     { tipo:"doc", bg:"negro", fotos:1,
       cita:"Las siluetas tienen relación con el silencio. Todo el mundo sabía pero nadie hablaba de ello. Era un gran pacto tácito de silencio." },
-
-    { tipo:"nota", bg:"papel", lado:"izq", titulo:"El silencio",
-      cuerpo:"Las siluetas ayudaron a la ruptura de ese pacto. Lo denunciaron." },
 
     { tipo:"nota-doble", bg:"papel",
       arriba:{ titulo:"Hecho gráfico", cuerpo:"La propuesta inicial no habla de arte, sino de crear un hecho gráfico que golpee por su magnitud física y por lo inusual de su realización." },
