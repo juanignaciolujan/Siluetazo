@@ -70,7 +70,7 @@ body{
 .lienzo{ position:relative; width:min(86vw, 520px); height:52svh; border-radius:2px; overflow:hidden; touch-action:none; box-shadow:0 14px 40px rgba(0,0,0,.55); }
 .lienzo .papel{ position:absolute; inset:0; width:100%; height:100%; display:block; z-index:0; }
 .lienzo .guia{ position:absolute; inset:0; z-index:1; display:flex; align-items:center; justify-content:center; pointer-events:none; }
-.lienzo .guia .fig{ height:84%; width:auto; fill:none; stroke:#5c533f; stroke-width:3; stroke-dasharray:4 9; stroke-linecap:round; opacity:.20; }
+.lienzo .guia .fig{ width:auto; height:auto; max-width:90%; max-height:82%; fill:none; stroke:#5c533f; stroke-width:3; stroke-dasharray:4 9; stroke-linecap:round; opacity:.22; }
 .lienzo #trazo{ position:absolute; inset:0; z-index:2; width:100%; height:100%; display:block; }
 
 /* UI post-dibujo */
@@ -84,6 +84,14 @@ body{
 }
 .post .listo:hover{ background:var(--negro); color:var(--hueso); }  /* invierte colores */
 .post .listo:active{ opacity:.8; }
+.post .acciones{ flex:0 0 auto; display:flex; gap:10px; }
+.post .reintentar{
+  font-family:var(--maquina); font-size:13px; letter-spacing:.04em;
+  background:transparent; color:var(--apagado); border:1px solid rgba(242,239,233,.3);
+  padding:12px 16px; border-radius:2px; cursor:pointer; transition:color .2s ease, border-color .2s ease;
+}
+.post .reintentar:hover{ color:var(--hueso); border-color:var(--hueso); }
+@media (max-width:430px){ .post{ flex-direction:column; align-items:flex-start; gap:10px; } .post .acciones{ width:100%; } .post .acciones .listo{ flex:1; } }
 
 /* transicion de salida del lienzo: el papel se expande a pantalla completa */
 .lienzo.expandiendo{ position:fixed; inset:0; width:100vw; height:100vh; z-index:50; border-radius:0; transition:all 900ms cubic-bezier(.7,0,.3,1); }
@@ -94,4 +102,74 @@ body{
 
 @media (prefers-reduced-motion: reduce){
   .fade, .placa, .post, .lienzo.expandiendo{ transition-duration:1ms; }
+}
+
+/* =========================================================
+   PANTALLAS 4 a 9 — RECORRIDO INMERSIVO (etapa 2)
+   ========================================================= */
+body.recorriendo{ overflow-y:auto; height:auto; }
+#escena.host-recorrido{ position:static; height:auto; }
+
+/* capas de fondo fijas: papel + silueta (paralaje) + cortina negra (crossfade) */
+.fondo-papel{ position:fixed; inset:0; z-index:0; }
+.fondo-papel canvas{ width:100%; height:100%; display:block; }
+.fondo-silueta{ position:fixed; inset:0; z-index:1; }
+.fondo-silueta canvas{ width:100%; height:100%; display:block; will-change:transform; }
+.cortina{ position:fixed; inset:0; z-index:2; background:var(--negro); opacity:1; transition:opacity 700ms ease; pointer-events:none; }
+
+.recorrido{ position:relative; z-index:3; }
+.seccion-r{ min-height:100svh; display:flex; flex-direction:column; justify-content:center; padding:14svh 24px; position:relative; }
+.seccion-r .rev{ opacity:0; transform:translateY(18px); transition:opacity .85s ease, transform .85s ease; }
+.seccion-r.visible .rev{ opacity:1; transform:none; }
+
+/* línea vertical (eje compositivo) */
+.eje{ position:absolute; top:9svh; bottom:9svh; width:1px; background:rgba(255,255,255,.45); }
+
+/* contexto histórico: texto sobre la silueta, anclado a la izquierda */
+.r-contexto .eje{ left:24px; background:rgba(255,255,255,.55); }
+.r-contexto .texto{ margin-left:20px; max-width:30ch; font-size:clamp(18px,5vw,25px); line-height:1.4; text-shadow:0 2px 18px rgba(0,0,0,.6); }
+.r-contexto b{ font-weight:700; }
+
+/* placa documental */
+.r-doc{ align-items:center; }
+.r-doc .eje{ left:50%; }
+.r-doc .fotos{ display:flex; gap:12px; justify-content:center; width:100%; max-width:760px; }
+.foto-ph{ background:#161616; border:1px solid rgba(255,255,255,.16); aspect-ratio:1/1; flex:1; max-width:230px; display:flex; align-items:center; justify-content:center; text-align:center; color:#5e5e5e; font-family:var(--maquina); font-size:11px; letter-spacing:.04em; padding:10px; }
+.r-doc .cita{ position:relative; font-family:var(--maquina); color:var(--hueso); max-width:34ch; margin:26px 0 0 auto; padding-left:34px; font-size:clamp(15px,4.2vw,18px); line-height:1.45; }
+.r-doc .cita .comillas{ position:absolute; left:-4px; top:-18px; font-family:var(--display); font-size:60px; line-height:1; color:var(--rojo); }
+
+/* nota de papel con chinche */
+.nota{
+  position:relative; background:#efe6cf; color:#1b1610; width:100%;
+  padding:30px 24px 26px; box-shadow:0 14px 34px rgba(0,0,0,.45);
+  background-image:repeating-linear-gradient(#efe6cf, #efe6cf 26px, rgba(40,30,15,.10) 27px, #efe6cf 28px);
+  clip-path:polygon(1% 2%, 12% 0, 33% 3%, 52% 0, 74% 2%, 92% 0, 99% 3%, 100% 22%, 99% 47%, 100% 71%, 98% 96%, 80% 99%, 58% 97%, 37% 100%, 16% 98%, 2% 99%, 0 73%, 1% 48%, 0 24%);
+}
+.nota h3{ font-family:var(--display); text-transform:uppercase; font-size:clamp(20px,5.6vw,30px); margin:6px 0 10px; line-height:1; }
+.nota p{ font-family:var(--cuerpo); font-size:15px; line-height:1.5; }
+.nota b{ font-weight:700; }
+.nota .chinche{ position:absolute; top:-8px; left:50%; transform:translateX(-50%); width:22px; height:22px; border-radius:50%;
+  background:radial-gradient(circle at 36% 30%, #e35a4b 0%, #b03022 55%, #7c1d14 100%); box-shadow:0 4px 6px rgba(0,0,0,.5), inset 0 -2px 3px rgba(0,0,0,.3); z-index:5; }
+
+.r-nota{ align-items:center; }
+.r-nota .marco{ width:min(84%,360px); }
+.r-nota.lado-der .marco{ transform:rotate(-2deg); }
+.r-nota.lado-izq .marco{ transform:rotate(2deg); }
+
+/* nota doble apilada con desgarro */
+.r-nota-doble{ align-items:center; }
+.nota-stack{ position:relative; width:min(84%,360px); }
+.nota-stack .abajo{ position:relative; }
+.nota-stack .arriba{ position:absolute; inset:0; transform-origin:top center; will-change:transform, opacity; }
+.nota-stack .abajo .nota{ transform:rotate(-1.5deg); }
+.nota-stack .arriba .nota{ transform:rotate(3deg); }
+
+/* stub del cierre (etapa 3) */
+.cierre-stub{ min-height:80svh; display:flex; align-items:center; justify-content:center; text-align:center; padding:24px; position:relative; z-index:3; }
+.cierre-stub p{ font-family:var(--maquina); color:var(--apagado); max-width:30ch; }
+
+@media (prefers-reduced-motion: reduce){
+  .seccion-r .rev{ transition-duration:1ms; }
+  .fondo-silueta canvas{ transform:none !important; }
+  .nota-stack .arriba{ transform:none !important; opacity:1 !important; }
 }

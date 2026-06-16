@@ -11,13 +11,33 @@ const color = v => getComputedStyle(document.documentElement).getPropertyValue(v
 const escena = document.getElementById('escena');
 
 /* figura humana de la guia (plantilla a trazar) */
-const SVG_FIG = `<svg class="fig" viewBox="0 0 120 300" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-  <circle cx="60" cy="42" r="30"/>
-  <path d="M60 78 C92 78 104 104 104 150 L96 300 L24 300 L16 150 C16 104 28 78 60 78 Z"/></svg>`;
+const SVG_FIG = `<svg class="fig" viewBox="0 0 600 520" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+  <path d="M300 20 C372 20 392 96 372 150 C362 178 350 188 338 196
+    C432 176 522 196 566 214 C578 230 560 252 470 244 C412 240 372 232 344 226
+    C356 270 366 300 372 332 C388 394 396 448 372 488 C360 504 332 502 322 472 C312 432 306 360 300 300
+    C294 360 288 432 278 472 C268 502 240 504 228 488 C204 448 212 394 228 332
+    C234 300 244 270 256 226 C228 232 188 240 130 244 C40 252 22 230 34 214 C78 196 168 176 262 196
+    C250 188 238 178 228 150 C208 96 228 20 300 20 Z"/></svg>`;
 
 /* silueta normalizada (0..1) — se guarda para las etapas siguientes */
 let silueta = null;
 function guardarSilueta(s){ try{ sessionStorage.setItem('siluetazo:silueta', JSON.stringify(s)); }catch(e){} }
+function cargarSilueta(){ try{ const r = sessionStorage.getItem('siluetazo:silueta'); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
+const clamp = (v,a,b)=> Math.max(a, Math.min(b, v));
+
+/* dibuja la silueta guardada dentro de una caja (contain); contorno o relleno */
+function rellenarSilueta(c, sil, caja, tinta, contorno, lw){
+  if(!sil) return;
+  const a = sil.aspecto;
+  let w = caja.w, h = caja.w/a;
+  if(h > caja.h){ h = caja.h; w = caja.h*a; }
+  const ox = caja.x + (caja.w-w)/2, oy = caja.y + (caja.h-h)/2;
+  c.beginPath();
+  sil.norm.forEach((p,i)=>{ const x=ox+p.x*w, y=oy+p.y*h; i?c.lineTo(x,y):c.moveTo(x,y); });
+  c.closePath();
+  if(contorno){ c.strokeStyle=tinta; c.lineWidth=lw||3; c.lineJoin='round'; c.lineCap='round'; c.stroke(); }
+  else { c.fillStyle=tinta; c.fill(); }
+}
 
 function ajustar(cv){
   const r = cv.getBoundingClientRect();
@@ -93,7 +113,10 @@ function irLienzo(){
       </div>
       <div class="post" id="post">
         <p class="frase">${L.postDibujo}</p>
-        <button class="listo" id="listo">${L.boton}</button>
+        <div class="acciones">
+          <button class="reintentar" id="reintentar">Reintentar</button>
+          <button class="listo" id="listo">${L.boton}</button>
+        </div>
       </div>
     </section>`;
 
@@ -170,6 +193,13 @@ function irLienzo(){
 
   btnListo.addEventListener('click', ()=> salirLienzo(lienzo));
 
+  // reintentar: borra el trazo y deja dibujar de nuevo
+  document.getElementById('reintentar').addEventListener('click', ()=>{
+    puntos = []; validado = false; silueta = null;
+    post.classList.remove('on');
+    pintarPapel(papel); ajustar(trazoCv);   // ajustar limpia el lienzo del trazo
+  });
+
   window.addEventListener('resize', ()=>{ if(!validado){ pintarPapel(papel); ajustar(trazoCv); pintarTrazo(false); } });
 }
 
@@ -209,10 +239,102 @@ function salirLienzo(lienzo){
 /* =========================================================
    PANTALLA 4+ — RECORRIDO INMERSIVO  (stub, etapa 2)
    ========================================================= */
+/* =========================================================
+   PANTALLAS 4 a 9 — RECORRIDO INMERSIVO (etapa 2)
+   Capas fijas: papel + silueta (paralaje) + cortina negra (crossfade).
+   El contenido scrollea por encima. Las placas de papel muestran la
+   silueta de fondo; las documentales bajan la cortina negra.
+   ========================================================= */
 function irRecorrido(){
-  escena.innerHTML = `<section class="stub"><p>Acá arranca el recorrido inmersivo con paralaje y desgarros. Lo construimos en la etapa 2, sobre esta misma base.</p></section>`;
-  const p = escena.querySelector('.stub p');
-  p.classList.add('fade'); entrar(p, 800);
+  const sil = silueta || cargarSilueta();
+
+  // habilitar scroll y montar capas de fondo fijas
+  document.body.classList.add('recorriendo');
+  escena.classList.add('host-recorrido');
+  escena.style.position = 'static'; escena.style.height = 'auto';
+  document.body.insertAdjacentHTML('afterbegin', `
+    <div class="fondo-papel"><canvas id="fPapel"></canvas></div>
+    <div class="fondo-silueta"><canvas id="fSil"></canvas></div>
+    <div class="cortina" id="cortina"></div>`);
+
+  const nota = (t,c)=> `<div class="nota"><span class="chinche"></span><h3>${t}</h3><p>${c}</p></div>`;
+  const ph   = '<div class="foto-ph">imagen de archivo<br>(placeholder)</div>';
+
+  function seccionHTML(s){
+    if(s.tipo === 'contexto')
+      return `<section class="seccion-r r-contexto" data-bg="papel"><div class="eje rev"></div><div class="texto rev">${s.html}</div></section>`;
+    if(s.tipo === 'doc')
+      return `<section class="seccion-r r-doc" data-bg="negro"><div class="eje"></div>
+                <div class="fotos rev">${ph.repeat(s.fotos||1)}</div>
+                <p class="cita rev"><span class="comillas">“</span>${s.cita}</p></section>`;
+    if(s.tipo === 'nota')
+      return `<section class="seccion-r r-nota lado-${s.lado||'der'}" data-bg="papel"><div class="marco rev">${nota(s.titulo,s.cuerpo)}</div></section>`;
+    if(s.tipo === 'nota-doble')
+      return `<section class="seccion-r r-nota-doble" data-bg="papel"><div class="nota-stack rev">
+                <div class="abajo">${nota(s.abajo.titulo,s.abajo.cuerpo)}</div>
+                <div class="arriba">${nota(s.arriba.titulo,s.arriba.cuerpo)}</div></div></section>`;
+    return '';
+  }
+
+  escena.innerHTML = `<div class="recorrido">${DATOS.desarrollo.map(seccionHTML).join('')}
+    <section class="cierre-stub"><p>Acá va el cierre: el muro de las 30.000, el documental y el compartir. Lo armamos en la etapa 3, sobre esta base.</p></section>
+  </div>`;
+  window.scrollTo(0,0);
+
+  // capas de fondo
+  const fPapel = document.getElementById('fPapel');
+  const fSil   = document.getElementById('fSil');
+  const cortina= document.getElementById('cortina');
+
+  function dibujarFondo(){
+    pintarPapel(fPapel);
+    const r = ajustar(fSil);
+    const c = fSil.getContext('2d');
+    c.clearRect(0,0,r.width,r.height);
+    const lado = Math.min(r.width, r.height);
+    const box = { x:r.width*0.5 - lado*0.42, y:r.height*0.5 - lado*0.40, w:lado*0.84, h:lado*0.80 };
+    rellenarSilueta(c, sil, box, 'rgba(20,18,16,0.92)', true, 4);   // la línea negra del trazo
+  }
+  requestAnimationFrame(()=> requestAnimationFrame(dibujarFondo));
+
+  const secciones = [...escena.querySelectorAll('.seccion-r')];
+  const arribas   = [...escena.querySelectorAll('.nota-stack .arriba')];
+
+  // aparicion de cada seccion
+  const io = new IntersectionObserver(es=> es.forEach(e=>{ if(e.isIntersecting) e.target.classList.add('visible'); }), {threshold:.3});
+  secciones.forEach(s=> io.observe(s));
+
+  // loop de scroll: paralaje de la silueta + crossfade papel/negro + desgarro
+  let pidiendo = false;
+  function actualizar(){
+    const vh = window.innerHeight;
+
+    // paralaje + leve zoom de la silueta de fondo (sobrevolar el dibujo)
+    if(!reducido){
+      const max = Math.max(1, document.body.scrollHeight - vh);
+      const prog = clamp(window.scrollY / max, 0, 1);
+      fSil.style.transform = `translateY(${(-window.scrollY*0.12).toFixed(0)}px) scale(${(1.05 + prog*0.5).toFixed(3)})`;
+    }
+
+    // seccion activa -> cortina (negra en documentales, transparente en papel)
+    let activa = secciones[0], mejor = Infinity;
+    secciones.forEach(s=>{ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.height/2)-vh/2); if(d<mejor){ mejor=d; activa=s; } });
+    cortina.style.opacity = (activa && activa.dataset.bg === 'negro') ? '1' : '0';
+
+    // desgarro de la nota de arriba, atado al scroll de su seccion
+    if(!reducido) arribas.forEach(a=>{
+      const r = a.closest('.seccion-r').getBoundingClientRect();
+      const p = clamp((vh*0.5 - (r.top + r.height*0.5)) / (vh*0.5), 0, 1);
+      const tear = clamp((p - 0.12) / 0.55, 0, 1);
+      a.style.transform = `translateY(${(tear*130).toFixed(0)}%) rotate(${(3 + tear*15).toFixed(1)}deg) scale(${(1 + tear*0.12).toFixed(3)})`;
+      a.style.opacity = (1 - tear).toFixed(2);
+    });
+
+    pidiendo = false;
+  }
+  window.addEventListener('scroll', ()=>{ if(!pidiendo){ requestAnimationFrame(actualizar); pidiendo=true; } }, {passive:true});
+  window.addEventListener('resize', ()=>{ dibujarFondo(); actualizar(); });
+  actualizar();
 }
 
 /* ---------- arranque ---------- */
